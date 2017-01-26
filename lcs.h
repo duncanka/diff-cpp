@@ -300,16 +300,21 @@ class Diff  {
                         unsigned newOffset) {
 
     _Equivalent cmp;
+    unsigned origIndex = origOffset + Orig.size() - 1;
+    unsigned newIndex = newOffset + Orig.size() - 1;
+
     while ((Orig.size() != 0 && New.size() != 0) &&
            cmp(*(Orig.end()-1), *(New.end()-1))) {
   
       debugOut << "Added " << *(Orig.end()-1)<< "\n";
       //Append the common element to the LCS
-      origSuffix.push_front(origOffset + Orig.size() - 1);
-      newSuffix.push_front(newOffset + New.size() - 1);
+      origSuffix.push_front(origIndex);
+      newSuffix.push_front(newIndex);
       //Remove it from both sequences
       Orig.pop_back();
+      --origIndex;
       New.pop_back();
+      --newIndex;
     }
   }
 
@@ -337,16 +342,16 @@ class Diff  {
       //lcs is empty; do nothing
     } 
     else if (Orig.size() == 1) {
-      auto iter = New.template find<_Equivalent>(Orig[0]);
-      if (iter != New.end()) {
+      unsigned index = New.template find<_Equivalent>(Orig[0]);
+      if (index != static_cast<unsigned>(-1)) {
         OrigLCSIndices.push_front(origOffset);
-        NewLCSIndices.push_front(newOffset + (iter - New.begin()));
+        NewLCSIndices.push_front(newOffset + index);
       }
     } 
     else if (New.size() == 1) {
-      auto iter = Orig.template find<_Equivalent>(New[0]);
-      if (iter != Orig.end()) {
-        OrigLCSIndices.push_front(origOffset + (iter - Orig.begin()));
+      unsigned index = Orig.template find<_Equivalent>(New[0]);
+      if (index != static_cast<unsigned>(-1)) {
+        OrigLCSIndices.push_front(origOffset + index);
         NewLCSIndices.push_front(newOffset);
       }
     //Otherwise find the bisection point, and compute the diff of the left and right part
