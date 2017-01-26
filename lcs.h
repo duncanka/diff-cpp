@@ -5,6 +5,8 @@
 #include "RandomAccessSequence.h"
 #include "DiffErr.h"
 #include <cassert>
+#include <climits>
+#include <functional>
 #include <sstream>
 #include <list>
 
@@ -53,7 +55,8 @@ public:
 typedef enum {FORWARD, REVERSE} Direction;
 
 template < Direction dir,
-           typename _RandomAccessSequenceTy >
+           typename _RandomAccessSequenceTy,
+           typename _Equivalent>
 class MyersAlgorithm {
 
   typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
@@ -88,9 +91,11 @@ class MyersAlgorithm {
     debugOut << " snake: front=" << front  << " normalized=" << norm << std::endl;
     
     assert(front.y <= Orig.size() && front.x <= New.size());
+    _Equivalent cmp;
     while (front.y < Orig.size() && front.x < New.size() && 
            (dir==FORWARD ? 
-            Orig[norm.y] == New[norm.x] : Orig[norm.y-1] == New[norm.x-1])) {
+            cmp(Orig[norm.y], New[norm.x]) :
+            cmp(Orig[norm.y-1], New[norm.x-1]))) {
       ++front;
       norm = normalize(front);
     }
@@ -251,7 +256,8 @@ public:
 };
 
 
-template <typename _RandomAccessSequenceTy>
+template <typename _RandomAccessSequenceTy,
+          typename _Equivalent = std::equal_to<>>
 class Diff  { 
   typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
 
@@ -263,15 +269,16 @@ class Diff  {
                         _RandomAccessSequenceTy &New, 
                         LCSList &prefix) {
 
+    _Equivalent cmp;
     while ((Orig.size() != 0 && New.size() != 0) &&
-           (*Orig.begin() == *New.begin())) {
+           cmp(*Orig.begin(), *New.begin())) {
 
       debugOut << "Added " <<  *Orig.begin() <<"\n";
       //Append the common element to the LCS
       prefix.push_back(New.pop_front());
       //Remove it from both sequences
       Orig.pop_front();
-    
+
     }
   }
 
@@ -280,8 +287,9 @@ class Diff  {
                         _RandomAccessSequenceTy &New,
                         LCSList &suffix) {
 
+    _Equivalent cmp;
     while ((Orig.size() != 0 && New.size() != 0) &&
-           (*(Orig.end()-1) == *(New.end()-1))) {
+           cmp(*(Orig.end()-1), *(New.end()-1))) {
   
       debugOut << "Added " << *(Orig.end()-1)<< "\n";
       //Append the common element to the LCS
@@ -311,11 +319,11 @@ class Diff  {
       //lcs is empty do nothing
     } 
     else if (Orig.size() == 1){
-      if (New.contains(Orig[0]))
+      if (New.template contains<_Equivalent>(Orig[0]))
         LCS.push_front(Orig[0]);
     } 
     else if (New.size() == 1) { 
-      if  (Orig.contains(New[0]))
+      if  (Orig.template contains<_Equivalent>(New[0]))
         LCS.push_front(New[0]);
 
     //Otherwise find the bisection point, and compute the diff of the left and right part
@@ -346,8 +354,10 @@ class Diff  {
   Position bisect( _RandomAccessSequenceTy Orig, 
                    _RandomAccessSequenceTy New ) {
    
-    MyersAlgorithm<FORWARD,_RandomAccessSequenceTy> forward(Orig, New);
-    MyersAlgorithm<REVERSE,_RandomAccessSequenceTy> reverse(Orig, New);
+    MyersAlgorithm<FORWARD,_RandomAccessSequenceTy, _Equivalent> forward(Orig,
+                                                                         New);
+    MyersAlgorithm<REVERSE,_RandomAccessSequenceTy, _Equivalent> reverse(Orig,
+                                                                         New);
 
     bool overlap = false;
     Position bisection;
@@ -380,8 +390,9 @@ public:
 };
 
 
-template < typename RandomAccessIterator, 
-           typename OutputIterator >
+template < typename RandomAccessIterator,
+           typename OutputIterator,
+           typename Equivalent = std::equal_to<>>
 OutputIterator 
 lcs (RandomAccessIterator begin1, RandomAccessIterator end1,
      RandomAccessIterator begin2, RandomAccessIterator end2,
@@ -393,7 +404,7 @@ lcs (RandomAccessIterator begin1, RandomAccessIterator end1,
   RandAccSeqTy New(begin2, end2);
   
   
-  Diff<RandAccSeqTy> Instance(Orig, New);
+  Diff<RandAccSeqTy, Equivalent> Instance(Orig, New);
   
   return std::copy(Instance.LCS().begin(), Instance.LCS().end(), output);
 }

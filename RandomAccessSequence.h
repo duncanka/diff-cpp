@@ -1,6 +1,8 @@
 #ifndef RANDOMACCESSSEQUENCE_H
 #define RANDOMACCESSSEQUENCE_H
 
+#include <functional>
+
 /** 
     A generic random access sequence type whose values are stored externally
  */
@@ -22,8 +24,13 @@ public:
   inline ElemTy pop_back() {  ElemTy tmp = *(_end-1); --_end; --_len;  return tmp; }
   inline size_t size() const { return _len; }
   inline ElemTy operator[] (size_t index) const {assert(index < _len); return *(_begin + index); }
+
+  template <typename Equivalent = std::equal_to<>>
   bool contains(ElemTy elem) {
-    for (_RandomAccessInputIterator i = _begin; i < _end; ++i) if (*i == elem) return true;
+    Equivalent cmp;
+    for (_RandomAccessInputIterator i = _begin; i < _end; ++i)
+      if (cmp(*i, elem))
+        return true;
     return false;
   }
   void split(size_t index, RandomAccessSequence &left, RandomAccessSequence &right) {
