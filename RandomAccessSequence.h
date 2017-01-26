@@ -26,12 +26,12 @@ public:
   inline ElemTy operator[] (size_t index) const {assert(index < _len); return *(_begin + index); }
 
   template <typename Equivalent = std::equal_to<>>
-  bool contains(ElemTy elem) {
+      _RandomAccessInputIterator find(ElemTy elem) {
     Equivalent cmp;
     for (_RandomAccessInputIterator i = _begin; i < _end; ++i)
       if (cmp(*i, elem))
-        return true;
-    return false;
+        return i;
+    return _end;
   }
   void split(size_t index, RandomAccessSequence &left, RandomAccessSequence &right) {
     left = RandomAccessSequence(_begin, _begin + index);

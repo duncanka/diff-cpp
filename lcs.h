@@ -260,14 +260,20 @@ template <typename _RandomAccessSequenceTy,
           typename _Equivalent = std::equal_to<>>
 class Diff  { 
   typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
+  typedef std::list<unsigned> IndexList;
 
   //The Longest Common Subsequence for the two sequences
   LCSList _LCS;
+  IndexList _OrigLCSIndices;
+  IndexList _NewLCSIndices;
   
   //Eat up common elements at the beginning of both sequences
   inline void eatPrefix(_RandomAccessSequenceTy &Orig, 
-                        _RandomAccessSequenceTy &New, 
-                        LCSList &prefix) {
+                        _RandomAccessSequenceTy &New,
+                        IndexList &origPrefix,
+                        IndexList &newPrefix,
+                        unsigned origOffset,
+                        unsigned newOffset) {
 
     _Equivalent cmp;
     while ((Orig.size() != 0 && New.size() != 0) &&
@@ -275,17 +281,23 @@ class Diff  {
 
       debugOut << "Added " <<  *Orig.begin() <<"\n";
       //Append the common element to the LCS
-      prefix.push_back(New.pop_front());
+      origPrefix.push_back(origOffset);
+      newPrefix.push_back(newOffset);
+      origOffset++;
+      newOffset++;
       //Remove it from both sequences
       Orig.pop_front();
-
+      New.pop_front();
     }
   }
 
   //Eat up common elements at the end of both sequences
   inline void eatSuffix(_RandomAccessSequenceTy &Orig, 
                         _RandomAccessSequenceTy &New,
-                        LCSList &suffix) {
+                        IndexList &origSuffix,
+                        IndexList &newSuffix,
+                        unsigned origOffset,
+                        unsigned newOffset) {
 
     _Equivalent cmp;
     while ((Orig.size() != 0 && New.size() != 0) &&
@@ -293,39 +305,50 @@ class Diff  {
   
       debugOut << "Added " << *(Orig.end()-1)<< "\n";
       //Append the common element to the LCS
-      suffix.push_front(New.pop_back());
+      origSuffix.push_front(origOffset + Orig.size() - 1);
+      newSuffix.push_front(newOffset + New.size() - 1);
       //Remove it from both sequences
       Orig.pop_back();
-  
+      New.pop_back();
     }
   }
 
   void do_diff(_RandomAccessSequenceTy Orig, 
                _RandomAccessSequenceTy New,
-               LCSList &LCS) {
+               IndexList &OrigLCSIndices,
+               IndexList &NewLCSIndices,
+               unsigned origOffset,
+               unsigned newOffset) {
 
     debugOut << "do_diff Orig.size=" << Orig.size()
              << " New.size=" << New.size() << std::endl;
     
     dprintMatrix(Orig, New);
  
-    LCSList prefix, suffix;
+    IndexList origPrefix, origSuffix, newPrefix, newSuffix;
     //Eat up common elements at the beginning and end of the sequence
-    eatPrefix(Orig, New, prefix);
-    eatSuffix(Orig, New, suffix);
+    eatPrefix(Orig, New, origPrefix, newPrefix, origOffset, newOffset);
+    origOffset += origPrefix.size();
+    newOffset += newPrefix.size();
+    eatSuffix(Orig, New, origSuffix, newSuffix, origOffset, newOffset);
     
     //If the problem is trivial, solve it
     if (Orig.size() == 0 || New.size() == 0){
-      //lcs is empty do nothing
+      //lcs is empty; do nothing
     } 
-    else if (Orig.size() == 1){
-      if (New.template contains<_Equivalent>(Orig[0]))
-        LCS.push_front(Orig[0]);
+    else if (Orig.size() == 1) {
+      auto iter = New.template find<_Equivalent>(Orig[0]);
+      if (iter != New.end()) {
+        OrigLCSIndices.push_front(origOffset);
+        NewLCSIndices.push_front(newOffset + (iter - New.begin()));
+      }
     } 
-    else if (New.size() == 1) { 
-      if  (Orig.template contains<_Equivalent>(New[0]))
-        LCS.push_front(New[0]);
-
+    else if (New.size() == 1) {
+      auto iter = Orig.template find<_Equivalent>(New[0]);
+      if (iter != Orig.end()) {
+        OrigLCSIndices.push_front(origOffset + (iter - Orig.begin()));
+        NewLCSIndices.push_front(newOffset);
+      }
     //Otherwise find the bisection point, and compute the diff of the left and right part
     } else {
      _RandomAccessSequenceTy origLeft, origRight, newLeft, newRight;
@@ -336,19 +359,29 @@ class Diff  {
       New.split(bisection.x, newLeft, newRight);
     
       // Compute the diffs of the left and right part
-      LCSList left, right;
-      do_diff(origLeft, newLeft, left);
-      do_diff(origRight, newRight, right);
+      IndexList newLeftIndices, origLeftIndices, newRightIndices,
+          origRightIndices;
+      do_diff(origLeft, newLeft, origLeftIndices, newLeftIndices, origOffset,
+              newOffset);
+      do_diff(origRight, newRight, origRightIndices, newRightIndices,
+              origOffset + bisection.y, newOffset + bisection.x);
       
       // Join the results
-      LCS.splice(LCS.begin(), right);
-      LCS.splice(LCS.begin(), left);
-
+      OrigLCSIndices.splice(OrigLCSIndices.begin(), origRightIndices);
+      OrigLCSIndices.splice(OrigLCSIndices.begin(), origLeftIndices);
+      NewLCSIndices.splice(NewLCSIndices.begin(), newRightIndices);
+      NewLCSIndices.splice(NewLCSIndices.begin(), newLeftIndices);
     }
 
     //Add the prefix and suffix back;
-    if (!prefix.empty()) LCS.splice(LCS.begin(), prefix);
-    if (!suffix.empty()) LCS.splice(LCS.end(), suffix);
+    if (!origPrefix.empty()) {
+      OrigLCSIndices.splice(OrigLCSIndices.begin(), origPrefix);
+      NewLCSIndices.splice(NewLCSIndices.begin(), newPrefix);
+    }
+    if (!origSuffix.empty()) {
+      OrigLCSIndices.splice(OrigLCSIndices.end(), origSuffix);
+      NewLCSIndices.splice(NewLCSIndices.end(), newSuffix);
+    }
   }
 
   Position bisect( _RandomAccessSequenceTy Orig, 
@@ -381,12 +414,17 @@ public:
   Diff(_RandomAccessSequenceTy Orig, 
        _RandomAccessSequenceTy New)
   {
-    do_diff(Orig, New, _LCS);   
+    do_diff(Orig, New, _OrigLCSIndices, _NewLCSIndices, 0, 0);
+    // Doesn't matter which one we populate _LCS from.
+    for (unsigned index : _OrigLCSIndices) {
+      _LCS.push_back(Orig[index]);
+    }
   }
 
-  inline LCSList & LCS() {    
-    return _LCS;
-  }
+  inline const LCSList & LCS() { return _LCS; }
+  inline const LCSList & OrigLCSIndices() { return _OrigLCSIndices; }
+  inline const LCSList & NewLCSIndices() { return _NewLCSIndices; }
+
 };
 
 
