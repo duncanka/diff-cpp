@@ -257,11 +257,13 @@ public:
 
 
 template <typename _RandomAccessSequenceTy,
-          typename _Equivalent = std::equal_to<>>
-class Diff  { 
+          typename _Equivalent = std::equal_to<void>>
+class Diff  {
+public:
   typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
   typedef std::list<unsigned> IndexList;
 
+protected:
   //The Longest Common Subsequence for the two sequences
   LCSList _LCS;
   IndexList _OrigLCSIndices;
@@ -417,8 +419,24 @@ class Diff  {
 
 public:
   Diff(_RandomAccessSequenceTy Orig, 
-       _RandomAccessSequenceTy New)
-  {
+       _RandomAccessSequenceTy New) {
+    Init(Orig, New);
+  }
+
+  template <class RandomAccessIterable>
+  Diff(const RandomAccessIterable& Orig, const RandomAccessIterable& New) {
+    _RandomAccessSequenceTy origSeq(Orig.begin(), Orig.end());
+    _RandomAccessSequenceTy newSeq(New.begin(), New.end());
+    Init(origSeq, newSeq);
+  }
+
+  inline const LCSList & LCS() { return _LCS; }
+  inline const IndexList & OrigLCSIndices() { return _OrigLCSIndices; }
+  inline const IndexList & NewLCSIndices() { return _NewLCSIndices; }
+
+private:
+  void Init(_RandomAccessSequenceTy& Orig,
+            _RandomAccessSequenceTy& New) {
     do_diff(Orig, New, _OrigLCSIndices, _NewLCSIndices, 0, 0);
     // Doesn't matter which one we populate _LCS from.
     for (unsigned index : _OrigLCSIndices) {
@@ -426,20 +444,16 @@ public:
     }
   }
 
-  inline const LCSList & LCS() { return _LCS; }
-  inline const LCSList & OrigLCSIndices() { return _OrigLCSIndices; }
-  inline const LCSList & NewLCSIndices() { return _NewLCSIndices; }
-
 };
 
 
 template < typename RandomAccessIterator,
            typename OutputIterator,
-           typename Equivalent = std::equal_to<>>
+           typename Equivalent = std::equal_to<void>>
 OutputIterator 
 lcs (RandomAccessIterator begin1, RandomAccessIterator end1,
      RandomAccessIterator begin2, RandomAccessIterator end2,
-     OutputIterator output){
+     OutputIterator output) {
   
   typedef RandomAccessSequence<RandomAccessIterator> RandAccSeqTy;
 

@@ -25,7 +25,7 @@ public:
   inline size_t size() const { return _len; }
   inline ElemTy operator[] (size_t index) const {assert(index < _len); return *(_begin + index); }
 
-  template <typename Equivalent = std::equal_to<>>
+  template <typename Equivalent = std::equal_to<void>>
       unsigned find(ElemTy elem) {
     Equivalent cmp;
     unsigned index = 0;
