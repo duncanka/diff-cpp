@@ -255,7 +255,8 @@ public:
 
 
 template <typename _RandomAccessSequenceTy,
-          typename _Equivalent = std::equal_to<void>>
+          typename _Equivalent = std::equal_to<
+            typename _RandomAccessSequenceTy::ElemTy>>
 class Diff  {
 public:
   typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
