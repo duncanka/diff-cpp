@@ -1,6 +1,8 @@
 #ifndef LCH_H
 #define LCS_H
 
+#include <algorithm>
+
 #include "Matrix.h"
 #include "RandomAccessSequence.h"
 #include "DiffErr.h"
@@ -10,10 +12,6 @@
 #include <sstream>
 #include <list>
 
-
-//TODO get rid of these
-#define max(N,M) ((N)>(M)? N : M)
-#define min(N,M) ((N)<(M)? N : M)
 
 typedef NegIndexVector<uint32_t> Vector;
 
@@ -219,8 +217,8 @@ public:
     int32_t kEnd = k_end();
 
     //Only check the diagonals that have been walked in the other direction
-    int32_t kb = max(size_delta - kEnd, kBegin);
-    int32_t ke = min(size_delta - kBegin, kEnd);
+    int32_t kb = std::max(size_delta - kEnd, kBegin);
+    int32_t ke = std::min(size_delta - kBegin, kEnd);
 
     for (int k =  kb; k <= ke; k++) {
       int k_r = size_delta - k;
