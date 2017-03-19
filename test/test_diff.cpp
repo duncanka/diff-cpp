@@ -4,16 +4,31 @@
 #include <fstream>
 #include <cstdlib>
 #include <ctime>
+#include <sstream>
 
 #include "lcs.h"
 
 using std::vector;
 using std::cout;
 using std::endl;
+using std::ostringstream;
 using std::string;
+using std::to_string;
 
 const char * usage = "Prints the difference between two strings\n %s: <string> <string>\n";
 const bool longstr = true;
+
+template<class Container>
+string stringify(const Container& list) {
+  if (list.empty())
+    return "";
+
+  ostringstream result(to_string(*list.begin()));
+  for (auto iter = ++list.begin(); iter != list.end(); ++iter) {
+    result << ' ' << to_string(*iter);
+  }
+  return result.str();
+}
 
 template < typename T >
 bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=false) 
@@ -31,21 +46,29 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
 
   clock_t start_time = clock();
 
-  vector<T> LCS(n.size());
-  typename vector<T>::iterator end = lcs(o.begin(), o.end(),
-					 n.begin(), n.end(), 
-					 LCS.begin());
+  Diff<RandomAccessSequence<typename vector<T>::const_iterator>> diff(o, n);
   clock_t end_time = clock();
+  vector<T> LCS(diff.LCS().begin(), diff.LCS().end());
+  string orig_indices = stringify(diff.OrigLCSIndices());
+  string new_indices = stringify(diff.NewLCSIndices());
   
-  LCS.resize(end-LCS.begin());
-
   if (longstr){
     cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.begin()+10) << "..."
 	 << string(LCS.end()-10, LCS.end()) <<"\n";
     cout << " Length = " << LCS.end() - LCS.begin() << endl;
+    cout << " A indices = "
+         << string(orig_indices.begin(), orig_indices.begin() + 10)
+         << "..." << endl;
+    cout << " B indices = "
+         << string(new_indices.begin(), new_indices.begin() + 10)
+         << "..." << endl;
   } else {
     cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.end()) << "\n";
+    cout << " Orig indices = " << orig_indices << endl;
+    cout << " New indices = " << new_indices << endl;
   }
+  cout << " Indices lengths: " << diff.OrigLCSIndices().size() << ", "
+       << diff.NewLCSIndices().size() << endl;
   
 
   // Test calculating the LCS in both directions.  The LCS function is
@@ -72,14 +95,15 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
   double cpu_time_secs = ((end_time - start_time)/(double)CLOCKS_PER_SEC)*1000;
   cout << " Time spent = " << cpu_time_secs <<" ms\n";
 
-  if ((LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)) {
+  if ((LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)
+      && diff.OrigLCSIndices().size() == diff.NewLCSIndices().size()) {
     cout << "Passed!" << endl;
     return true;
   } else {
     cout << "FAIL!" << endl;
     exit(-1);
-    return false;
   }
+  return false;
 }
 
 template < typename T >
