@@ -23,9 +23,12 @@ string stringify(const Container& list) {
   if (list.empty())
     return "";
 
-  ostringstream result(to_string(*list.begin()));
-  for (auto iter = ++list.begin(); iter != list.end(); ++iter) {
-    result << ' ' << to_string(*iter);
+  ostringstream result;
+  for (auto iter = list.begin(); iter != list.end(); ++iter) {
+    result << to_string(*iter);
+    auto iter2 = iter;
+    if (++iter2 != list.end())
+      result << ' ';
   }
   return result.str();
 }
@@ -199,6 +202,7 @@ int main(int argc, char *argv[])
   test_case("bad", "ad", "ad");
   test_case("bad", "ba", "ba");
   test_case("bad", "dba", "ba");
+  test_case("abc", "bcd", "bc");
   test_case("read", "ea", "ea");
   test_case("34cd78w", "78z", "78");
 
