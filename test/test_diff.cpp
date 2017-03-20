@@ -15,8 +15,8 @@ using std::ostringstream;
 using std::string;
 using std::to_string;
 
-const char * usage = "Prints the difference between two strings\n %s: <string> <string>\n";
-const bool longstr = true;
+
+constexpr bool LONGSTR = true;
 
 template<class Container>
 string stringify(const Container& list) {
@@ -52,27 +52,39 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
   Diff<RandomAccessSequence<typename vector<T>::const_iterator>> diff(o, n);
   clock_t end_time = clock();
   vector<T> LCS(diff.LCS().begin(), diff.LCS().end());
-  string orig_indices = stringify(diff.OrigLCSIndices());
-  string new_indices = stringify(diff.NewLCSIndices());
+  vector<unsigned> orig_indices(diff.OrigLCSIndices().begin(), diff.OrigLCSIndices().end());
+  vector<unsigned> new_indices(diff.NewLCSIndices().begin(), diff.NewLCSIndices().end());
   
   if (longstr){
     cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.begin()+10) << "..."
 	 << string(LCS.end()-10, LCS.end()) <<"\n";
     cout << " Length = " << LCS.end() - LCS.begin() << endl;
     cout << " A indices = "
-         << string(orig_indices.begin(), orig_indices.begin() + 10)
+         << stringify(orig_indices).substr(0, 10)
          << "..." << endl;
     cout << " B indices = "
-         << string(new_indices.begin(), new_indices.begin() + 10)
+        << stringify(new_indices).substr(0, 10)
          << "..." << endl;
   } else {
     cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.end()) << "\n";
-    cout << " Orig indices = " << orig_indices << endl;
-    cout << " New indices = " << new_indices << endl;
+    cout << " Orig indices = " << stringify(orig_indices) << endl;
+    cout << " New indices = " << stringify(new_indices) << endl;
   }
-  cout << " Indices lengths: " << diff.OrigLCSIndices().size() << ", "
-       << diff.NewLCSIndices().size() << endl;
-  
+  bool indices_match = true;
+  if (diff.OrigLCSIndices().size() != diff.NewLCSIndices().size()) {
+    cout << " Orig/new indices sizes don't match!" << endl;
+    indices_match = false;
+  } else {
+    for (unsigned i = 0; i < LCS.size(); ++i) {
+      if (o[orig_indices[i]] != LCS[i] || n[new_indices[i]] != LCS[i]) {
+        cout << " Index mismatch starting at index " << i << ": A[i] = "
+             << o[orig_indices[i]] << "; B[i] = " << n[new_indices[i]]
+             << "; LCS[i] = " << LCS[i] << endl;
+        indices_match = false;
+        break;
+      }
+    }
+  }
 
   // Test calculating the LCS in both directions.  The LCS function is
   // a commutative function so the result should be the same.
@@ -98,7 +110,7 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
   double cpu_time_secs = ((end_time - start_time)/(double)CLOCKS_PER_SEC)*1000;
   cout << " Time spent = " << cpu_time_secs <<" ms\n";
 
-  if ((LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)
+  if (indices_match && (LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)
       && diff.OrigLCSIndices().size() == diff.NewLCSIndices().size()) {
     cout << "Passed!" << endl;
     return true;
@@ -224,24 +236,25 @@ int main(int argc, char *argv[])
   test_case("7890", "78a907890", "7890");
   test_case("7890", "7890a7890", "7890");
   test_case("XMJYAUZ", "MZJAWXU", "MJAU");
+  test_case("qabc024yz", "abc123yz", "abc2yz");
 
   test_case("x1234ab34cd78w", "y12345678z", "123478");
 
   const char * A = "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890";
   const char * B = "123456789012345678901234567890a1234567890b1234567890123456789012c34567890123456789012345678901d231456789012345678901234567890123456789012345678901234567890";
-  test_case(A,B,A,longstr);
+  test_case(A,B,A,LONGSTR);
 
   vector<char> * lisp = read_ascii_file("lisp.txt");
   vector<char> * lisp1 = read_ascii_file("lisp1.txt");
   vector<char> * lisp_lcs = read_ascii_file("lisp_lcs.txt");
 
-  test_case<char>(*lisp, *lisp1, *lisp_lcs,longstr);
+  test_case<char>(*lisp, *lisp1, *lisp_lcs,LONGSTR);
 
   vector<char> * sp1 = read_ascii_file("speedtest1.txt");
   vector<char> * sp2 = read_ascii_file("speedtest2.txt");
   vector<char> * WRONG_lcs = read_ascii_file("lisp_lcs.txt");
 
-  test_speed<char>(*sp1, *sp2, *WRONG_lcs, longstr);
+  test_speed<char>(*sp1, *sp2, *WRONG_lcs, LONGSTR);
 
   exit(0);
 }
