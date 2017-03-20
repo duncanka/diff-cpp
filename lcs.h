@@ -302,7 +302,7 @@ protected:
 
     _Equivalent cmp;
     unsigned origIndex = origOffset + Orig.size() - 1;
-    unsigned newIndex = newOffset + Orig.size() - 1;
+    unsigned newIndex = newOffset + New.size() - 1;
 
     while ((Orig.size() != 0 && New.size() != 0) &&
            cmp(*(Orig.end()-1), *(New.end()-1))) {
@@ -363,7 +363,7 @@ protected:
 
       Orig.split(bisection.y, origLeft, origRight);
       New.split(bisection.x, newLeft, newRight);
-    
+
       // Compute the diffs of the left and right part
       IndexList newLeftIndices, origLeftIndices, newRightIndices,
           origRightIndices;
@@ -371,7 +371,7 @@ protected:
               newOffset);
       do_diff(origRight, newRight, origRightIndices, newRightIndices,
               origOffset + bisection.y, newOffset + bisection.x);
-      
+
       // Join the results
       OrigLCSIndices.splice(OrigLCSIndices.begin(), origRightIndices);
       OrigLCSIndices.splice(OrigLCSIndices.begin(), origLeftIndices);
