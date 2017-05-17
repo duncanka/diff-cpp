@@ -259,7 +259,8 @@ template <typename _RandomAccessSequenceTy,
             typename _RandomAccessSequenceTy::ElemTy>>
 class Diff  {
 public:
-  typedef std::list<typename _RandomAccessSequenceTy::ElemTy> LCSList;
+  typedef std::list<typename std::reference_wrapper<
+      const typename _RandomAccessSequenceTy::ElemTy>> LCSList;
   typedef std::list<unsigned> IndexList;
 
 protected:
@@ -267,6 +268,8 @@ protected:
   LCSList _LCS;
   IndexList _OrigLCSIndices;
   IndexList _NewLCSIndices;
+  IndexList _OrigOnlyIndices;
+  IndexList _NewOnlyIndices;
   
   //Eat up common elements at the beginning of both sequences
   inline void eatPrefix(_RandomAccessSequenceTy &Orig, 
@@ -429,20 +432,38 @@ public:
     Init(origSeq, newSeq);
   }
 
-  inline const LCSList & LCS() { return _LCS; }
-  inline const IndexList & OrigLCSIndices() { return _OrigLCSIndices; }
-  inline const IndexList & NewLCSIndices() { return _NewLCSIndices; }
+  inline const LCSList & LCS() const { return _LCS; }
+  inline const IndexList & OrigLCSIndices() const { return _OrigLCSIndices; }
+  inline const IndexList & NewLCSIndices() const { return _NewLCSIndices; }
+  inline const IndexList & OrigOnlyIndices() const { return _OrigOnlyIndices; }
+  inline const IndexList & NewOnlyIndices() const { return _NewOnlyIndices; }
 
 private:
   void Init(_RandomAccessSequenceTy& Orig,
             _RandomAccessSequenceTy& New) {
     do_diff(Orig, New, _OrigLCSIndices, _NewLCSIndices, 0, 0);
     // Doesn't matter which one we populate _LCS from.
-    for (unsigned index : _OrigLCSIndices) {
-      _LCS.push_back(Orig[index]);
-    }
+    PopulateUniqueIndices(Orig, _OrigLCSIndices, _OrigOnlyIndices, true);
+    PopulateUniqueIndices(New, _NewLCSIndices, _NewOnlyIndices, false);
   }
 
+  void PopulateUniqueIndices(_RandomAccessSequenceTy& input_seq,
+                             IndexList& lcs_index_list,
+                             IndexList& unique_indices, bool record_lcs) {
+    auto lcs_iter = lcs_index_list.begin();
+    auto input_iter = input_seq.begin();
+    for (unsigned index = 0; index < input_seq.size(); ++index, ++input_iter) {
+      if (lcs_iter != lcs_index_list.end() && index == *lcs_iter) {
+        if (record_lcs) {
+          _LCS.emplace_back(*input_iter);
+        }
+        ++lcs_iter;
+      } else {
+        unique_indices.push_back(index);
+      }
+    }
+    assert(_LCS.size() + unique_indices.size() == input_seq.size());
+  }
 };
 
 

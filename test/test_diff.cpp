@@ -1,50 +1,80 @@
-#include <vector>
-#include <string>
-#include <iostream>
-#include <fstream>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "lcs.h"
 
-using std::vector;
+using std::advance;
 using std::cout;
 using std::endl;
 using std::ostringstream;
+using std::set;
 using std::string;
 using std::to_string;
+using std::unique_ptr;
+using std::vector;
 
 
 constexpr bool LONGSTR = true;
 
-template<class Container>
-string stringify(const Container& list) {
-  if (list.empty())
+
+// Utility functions
+
+template <class ValueType>
+void stringify_helper(const ValueType &value, ostringstream& result, bool add_space) {
+  result << to_string(value);
+  if (add_space)
+    result << ' ';
+}
+
+void stringify_helper(const char& value, ostringstream& result, bool add_space) {
+  result << value;
+}
+
+template <class Iterator>
+string stringify(const Iterator start, const Iterator end) {
+  if (start == end)
     return "";
 
   ostringstream result;
-  for (auto iter = list.begin(); iter != list.end(); ++iter) {
-    result << to_string(*iter);
+  for (auto iter = start; iter != end; ++iter) {
     auto iter2 = iter;
-    if (++iter2 != list.end())
-      result << ' ';
+    stringify_helper(*iter, result, ++iter2 != end);
   }
   return result.str();
 }
 
+template <class Container>
+string stringify(const Container& container) {
+  return stringify(begin(container), end(container));
+}
+
+template<class Iterator, class Distance>
+Iterator advanced(Iterator iter, Distance n) {
+  advance(iter, n);
+  return iter;
+}
+
+
 template < typename T >
-bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=false) 
+bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr = false)
 {
   cout << "========\n";
   if (longstr){
-    cout << " A[0]..A["<< o.size() <<"] = "<< string(o.begin(), o.begin() + 10) << "..."
-	 << string(o.end()-10, o.end()) <<"\n" 
-	 << " B[0]..B["<< n.size() <<"] = " << string(n.begin(), n.begin()+ 10) << "..."
-	 << string(n.end()-10, n.end()) <<"\n";
+    cout << " A[0]..A["<< o.size() <<"] = "<< stringify(o.begin(), o.begin() + 10) << "..."
+	 << stringify(o.end()-10, o.end()) <<"\n"
+	 << " B[0]..B["<< n.size() <<"] = " << stringify(n.begin(), n.begin()+ 10) << "..."
+	 << stringify(n.end()-10, n.end()) <<"\n";
   } else {
-    cout << " A = "<< string(o.begin(), o.end())
-	 << " B = " << string(n.begin(), n.end()) << "\n";
+    cout << " A = "<< stringify(o.begin(), o.end())
+	 << " B = " << stringify(n.begin(), n.end()) << "\n";
   }
 
   clock_t start_time = clock();
@@ -56,8 +86,8 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
   vector<unsigned> new_indices(diff.NewLCSIndices().begin(), diff.NewLCSIndices().end());
   
   if (longstr){
-    cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.begin()+10) << "..."
-	 << string(LCS.end()-10, LCS.end()) <<"\n";
+    cout << " LCS(A,B) = " <<  stringify(LCS.begin(), LCS.begin()+10) << "..."
+	 << stringify(LCS.end()-10, LCS.end()) <<"\n";
     cout << " Length = " << LCS.end() - LCS.begin() << endl;
     cout << " A indices = "
          << stringify(orig_indices).substr(0, 10)
@@ -65,11 +95,18 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
     cout << " B indices = "
         << stringify(new_indices).substr(0, 10)
          << "..." << endl;
+    cout << "Unique(A) = " << stringify(diff.OrigOnlyIndices().begin(),
+                                        advanced(diff.OrigOnlyIndices().begin(), 10)) << "..." << endl;
+    cout << "Unique(B) = " << stringify(diff.NewOnlyIndices().begin(),
+                                        advanced(diff.NewOnlyIndices().begin(), 10)) << "..." << endl;
   } else {
-    cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.end()) << "\n";
+    cout << " LCS(A,B) = " <<  stringify(LCS.begin(), LCS.end()) << "\n";
     cout << " Orig indices = " << stringify(orig_indices) << endl;
     cout << " New indices = " << stringify(new_indices) << endl;
+    cout << " Unique(A) = " << stringify(diff.OrigOnlyIndices()) << endl;
+    cout << " Unique(B) = " << stringify(diff.NewOnlyIndices()) << endl;
   }
+
   bool indices_match = true;
   if (diff.OrigLCSIndices().size() != diff.NewLCSIndices().size()) {
     cout << " Orig/new indices sizes don't match!" << endl;
@@ -86,6 +123,33 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
     }
   }
 
+  // The unique indices had better complement the LCS indices perfectly.
+  bool uniques_match = true;
+  set<unsigned> all_orig_indices(diff.OrigLCSIndices().begin(), diff.OrigLCSIndices().end());
+  all_orig_indices.insert(diff.OrigOnlyIndices().begin(), diff.OrigOnlyIndices().end());
+  if (all_orig_indices.size() != o.size()) {
+    cout << " Wrong number of original indices (probably from uniques)" << endl;
+    uniques_match = false;
+  }
+  for (unsigned i = 0; i < o.size(); ++i) {
+    if (!all_orig_indices.count(i)) {
+      cout << " Missing original index " << i << " (probably from uniques)!" << endl;
+      uniques_match = false;
+    }
+  }
+  set<unsigned> all_new_indices(diff.NewLCSIndices().begin(), diff.NewLCSIndices().end());
+  all_new_indices.insert(diff.NewOnlyIndices().begin(), diff.NewOnlyIndices().end());
+  if (all_new_indices.size() != n.size()) {
+    cout << " Wrong number of new indices (probably from uniques)" << endl;
+    uniques_match = false;
+  }
+  for (unsigned i = 0; i < n.size(); ++i) {
+    if (!all_new_indices.count(i)) {
+      cout << " Missing new index " << i << " (probably from uniques)!" << endl;
+      uniques_match = false;
+    }
+  }
+
   // Test calculating the LCS in both directions.  The LCS function is
   // a commutative function so the result should be the same.
   
@@ -96,22 +160,21 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
   LCSSwap.resize(endSwap-LCSSwap.begin());
 
   if (longstr) {
-    cout << " LCS(B,A) = " <<  string(LCSSwap.begin(), LCSSwap.begin()+10) << "..."
-	 << string(LCSSwap.end()-10, LCSSwap.end()) <<"\n"
+    cout << " LCS(B,A) = " <<  stringify(LCSSwap.begin(), LCSSwap.begin()+10) << "..."
+	 << stringify(LCSSwap.end()-10, LCSSwap.end()) <<"\n"
          << " Length = " << LCSSwap.end() - LCSSwap.begin() << endl
-	 << " Expected   " << string (ExpectedLCS.begin(), ExpectedLCS.begin()+10) << "..." 
-	 << string(ExpectedLCS.end()-10, ExpectedLCS.end()) << endl
+	 << " Expected   " << stringify(ExpectedLCS.begin(), ExpectedLCS.begin()+10) << "..."
+	 << stringify(ExpectedLCS.end()-10, ExpectedLCS.end()) << endl
          << " Length = " << ExpectedLCS.end() - ExpectedLCS.begin() << endl;
   
   } else {
-    cout << " LCS(B,A) = " <<  string(LCSSwap.begin(), LCSSwap.end()) << endl
-	 << " Expected   " << string (ExpectedLCS.begin(), ExpectedLCS.end()) << endl;
+    cout << " LCS(B,A) = " <<  stringify(LCSSwap.begin(), LCSSwap.end()) << endl
+	 << " Expected   " << stringify(ExpectedLCS.begin(), ExpectedLCS.end()) << endl;
   }
   double cpu_time_secs = ((end_time - start_time)/(double)CLOCKS_PER_SEC)*1000;
   cout << " Time spent = " << cpu_time_secs <<" ms\n";
 
-  if (indices_match && (LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)
-      && diff.OrigLCSIndices().size() == diff.NewLCSIndices().size()) {
+  if (indices_match && uniques_match && (LCS == ExpectedLCS) && (LCSSwap == ExpectedLCS)) {
     cout << "Passed!" << endl;
     return true;
   } else {
@@ -122,17 +185,18 @@ bool test_case(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=
 }
 
 template < typename T >
-bool test_speed(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=false) 
+bool test_speed(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr=false,
+                const vector<T> &o_unique = {}, const vector<T> &n_unique = {})
 {
   cout << "========\n";
   if (longstr){
-    cout << " A[0]..A["<< o.size() <<"] = "<< string(o.begin(), o.begin() + 10) << "..."
-	 << string(o.end()-10, o.end()) <<"\n" 
-	 << " B[0]..B["<< n.size() <<"] = " << string(n.begin(), n.begin()+ 10) << "..."
-	 << string(n.end()-10, n.end()) <<"\n";
+    cout << " A[0]..A["<< o.size() <<"] = "<< stringify(o.begin(), o.begin() + 10) << "..."
+	 << stringify(o.end()-10, o.end()) <<"\n"
+	 << " B[0]..B["<< n.size() <<"] = " << stringify(n.begin(), n.begin()+ 10) << "..."
+	 << stringify(n.end()-10, n.end()) <<"\n";
   } else {
-    cout << " A = "<< string(o.begin(), o.end())
-	 << " B = " << string(n.begin(), n.end()) << "\n";
+    cout << " A = "<< stringify(o.begin(), o.end())
+	 << " B = " << stringify(n.begin(), n.end()) << "\n";
   }
 
   clock_t start_time = clock();
@@ -146,11 +210,11 @@ bool test_speed(vector<T> &o, vector<T> &n, vector<T> &ExpectedLCS, bool longstr
   LCS.resize(end-LCS.begin());
 
   if (longstr) {
-    cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.begin()+10) << "..."
-	 << string(LCS.end()-10, LCS.end()) <<"\n"
+    cout << " LCS(A,B) = " <<  stringify(LCS.begin(), LCS.begin()+10) << "..."
+	 << stringify(LCS.end()-10, LCS.end()) <<"\n"
          << " Length = " << LCS.end() - LCS.begin() << endl;
   } else {
-    cout << " LCS(A,B) = " <<  string(LCS.begin(), LCS.end()) << "\n"
+    cout << " LCS(A,B) = " <<  stringify(LCS.begin(), LCS.end()) << "\n"
          << " Length = " << LCS.end() - LCS.begin() << endl;
   }
 
@@ -168,6 +232,7 @@ bool test_case(string o, string n, string ExpectedLCS, bool longstr=false)
   vector<char> E(ExpectedLCS.begin(), ExpectedLCS.end());
 
   return test_case<char>(O,N,E, longstr);
+
 }
 
 vector<char> * read_ascii_file (string name)
