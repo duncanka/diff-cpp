@@ -26,8 +26,7 @@ public:
   inline ElemTy operator[] (size_t index) const {assert(index < _len); return *(_begin + index); }
 
   template <typename Equivalent = std::equal_to<void>>
-      unsigned find(ElemTy elem) {
-    Equivalent cmp;
+      unsigned find(ElemTy elem, Equivalent cmp = Equivalent()) {
     unsigned index = 0;
     for (_RandomAccessInputIterator i = _begin; i < _end; ++i, ++index)
       if (cmp(*i, elem))

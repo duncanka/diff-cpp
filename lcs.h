@@ -66,6 +66,8 @@ class MyersAlgorithm {
   unsigned D;
   Vector V;
 
+  _Equivalent Cmp;
+
 /** Takes a position that would be an offset from the beginning of the
     seqence in the forward direction and mirrors it so that it's an
     offset from the end of the sequence.
@@ -89,11 +91,10 @@ class MyersAlgorithm {
     debugOut << " snake: front=" << front  << " normalized=" << norm << std::endl;
     
     assert(front.y <= Orig.size() && front.x <= New.size());
-    _Equivalent cmp;
     while (front.y < Orig.size() && front.x < New.size() && 
            (dir==FORWARD ? 
-            cmp(Orig[norm.y], New[norm.x]) :
-            cmp(Orig[norm.y-1], New[norm.x-1]))) {
+            Cmp(Orig[norm.y], New[norm.x]) :
+            Cmp(Orig[norm.y-1], New[norm.x-1]))) {
       ++front;
       norm = normalize(front);
     }
@@ -241,9 +242,9 @@ public:
   }
   
   MyersAlgorithm(_RandomAccessSequenceTy O, 
-                 _RandomAccessSequenceTy N)
+                 _RandomAccessSequenceTy N, _Equivalent Cmp = _Equivalent())
     :Orig(O), New(N), size_delta(New.size() - Orig.size()),
-     D(0), V(Orig.size(), New.size())
+     D(0), V(Orig.size(), New.size()), Cmp(Cmp)
   {
     if(dir==FORWARD) { debugOut<< "Forward: \n"; } else debugOut<< "Reverse: \n";
    
@@ -279,9 +280,8 @@ protected:
                         unsigned origOffset,
                         unsigned newOffset) {
 
-    _Equivalent cmp;
     while ((Orig.size() != 0 && New.size() != 0) &&
-           cmp(*Orig.begin(), *New.begin())) {
+           _Cmp(*Orig.begin(), *New.begin())) {
 
       debugOut << "Added " <<  *Orig.begin() <<"\n";
       //Append the common element to the LCS
@@ -303,12 +303,11 @@ protected:
                         unsigned origOffset,
                         unsigned newOffset) {
 
-    _Equivalent cmp;
     unsigned origIndex = origOffset + Orig.size() - 1;
     unsigned newIndex = newOffset + New.size() - 1;
 
     while ((Orig.size() != 0 && New.size() != 0) &&
-           cmp(*(Orig.end()-1), *(New.end()-1))) {
+           _Cmp(*(Orig.end()-1), *(New.end()-1))) {
   
       debugOut << "Added " << *(Orig.end()-1)<< "\n";
       //Append the common element to the LCS
@@ -346,14 +345,14 @@ protected:
       //lcs is empty; do nothing
     } 
     else if (Orig.size() == 1) {
-      unsigned index = New.template find<_Equivalent>(Orig[0]);
+      unsigned index = New.find(Orig[0], _Cmp);
       if (index != static_cast<unsigned>(-1)) {
         OrigLCSIndices.push_front(origOffset);
         NewLCSIndices.push_front(newOffset + index);
       }
     } 
     else if (New.size() == 1) {
-      unsigned index = Orig.template find<_Equivalent>(New[0]);
+      unsigned index = Orig.find(New[0], _Cmp);
       if (index != static_cast<unsigned>(-1)) {
         OrigLCSIndices.push_front(origOffset + index);
         NewLCSIndices.push_front(newOffset);
@@ -396,10 +395,10 @@ protected:
   Position bisect( _RandomAccessSequenceTy Orig, 
                    _RandomAccessSequenceTy New ) {
    
-    MyersAlgorithm<FORWARD,_RandomAccessSequenceTy, _Equivalent> forward(Orig,
-                                                                         New);
-    MyersAlgorithm<REVERSE,_RandomAccessSequenceTy, _Equivalent> reverse(Orig,
-                                                                         New);
+    MyersAlgorithm<FORWARD,_RandomAccessSequenceTy, _Equivalent> forward(
+        Orig, New, _Cmp);
+    MyersAlgorithm<REVERSE,_RandomAccessSequenceTy, _Equivalent> reverse(
+        Orig, New, _Cmp);
 
     bool overlap = false;
     Position bisection;
@@ -420,13 +419,15 @@ protected:
   }
 
 public:
-  Diff(_RandomAccessSequenceTy Orig, 
-       _RandomAccessSequenceTy New) {
+  Diff(_RandomAccessSequenceTy Orig, _RandomAccessSequenceTy New,
+       _Equivalent cmp = _Equivalent())
+      : _Cmp(cmp) {
     Init(Orig, New);
   }
 
   template <class RandomAccessIterable>
-  Diff(const RandomAccessIterable& Orig, const RandomAccessIterable& New) {
+  Diff(const RandomAccessIterable& Orig, const RandomAccessIterable& New,
+       _Equivalent cmp = _Equivalent()) : _Cmp(cmp) {
     _RandomAccessSequenceTy origSeq(Orig.begin(), Orig.end());
     _RandomAccessSequenceTy newSeq(New.begin(), New.end());
     Init(origSeq, newSeq);
@@ -464,6 +465,8 @@ private:
     }
     assert(_LCS.size() + unique_indices.size() == input_seq.size());
   }
+
+  _Equivalent _Cmp;
 };
 
 
